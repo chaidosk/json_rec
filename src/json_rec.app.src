@@ -3,8 +3,14 @@
  [
   {description, "Json to Record"},
   {vsn, git},
-  {modules, [ json_rec ]},
+  {modules, [ 
+    json_rec 
+  ]},
   {registered, []},
-  {applications, [ kernel, stdlib, parse_trans ]},
+  {applications, [ 
+    kernel, 
+    stdlib, 
+    parse_trans 
+  ]},
   {env, []}
  ]}.

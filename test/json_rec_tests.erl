@@ -45,7 +45,7 @@ simple_json_data() ->
 
 simple_json_t2l_data() ->
     ["{\"two\":[1,2,3]}",
-     #simplet2l{ two = {1,2,3}}].
+     #simplet2l{ two = [1,2,3]}].
 unknown_json_data() ->
     ["{\"one\":1,\"two\":2}",
      [{<<"one">>, 1},{<<"two">>,2}]].
@@ -79,6 +79,11 @@ simple_test() ->
     NewRec = json_rec:to_rec(mochijson2:decode(Json),json_rec_tests,new(<<"simple">>)),
     ?assertEqual(Rec, NewRec).
 
+simple_t2l_test() ->
+    [Json, Rec] = simple_json_t2l_data(),
+    NewRec = json_rec:to_rec(mochijson2:decode(Json),json_rec_tests,new(<<"simplet2l">>)),
+    ?assertEqual(Rec, NewRec).
+
 deep_test() ->
     [Json, Rec] = deep_json_data(),
     NewRec = json_rec:to_rec(mochijson2:decode(Json),json_rec_tests,new(<<"deep">>)),
@@ -110,6 +115,15 @@ to_json_simple_test() ->
     Sjson= lists:flatten(mochijson2:encode(Conv)),
 
     New = json_rec:to_rec(mochijson2:decode(Sjson),json_rec_tests,new(<<"simple">>)),
+    ?assertEqual(Rec,New).
+
+to_json_simple_t2l_test() ->
+    [_Json, Rec] = simple_json_t2l_data(),
+
+    Conv = json_rec:to_json(Rec, json_rec_tests),
+    Sjson= lists:flatten(mochijson2:encode(Conv)),
+
+    New = json_rec:to_rec(mochijson2:decode(Sjson),json_rec_tests,new(<<"simplet2l">>)),
     ?assertEqual(Rec,New).
 
 to_json_deep_test() ->
