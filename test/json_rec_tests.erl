@@ -12,7 +12,8 @@
 
 -record(deep, {
           simple,
-          second = []
+          second,
+          third = null
          }).
 
 -record(atoms, {
@@ -31,6 +32,8 @@ new(<<"simplet2l">>) ->
     '#new-simplet2l'();
 new(<<"deep">>) ->
     '#new-deep'();
+new(<<"third">>) ->
+    '#new-simple'();
 new(<<"atoms">>) ->
     '#new-atoms'();
 new(_RecName) -> undefined.
@@ -46,6 +49,7 @@ simple_json_data() ->
 simple_json_t2l_data() ->
     ["{\"two\":[1,2,3]}",
      #simplet2l{ two = [1,2,3]}].
+
 unknown_json_data() ->
     ["{\"one\":1,\"two\":2}",
      [{<<"one">>, 1},{<<"two">>,2}]].
@@ -59,87 +63,88 @@ deep_json_data() ->
 
 deep_deep_json_data() ->
     Simple = "\"simple\":{\"one\":1,\"two\":2}",
-    Deep = "{"++Simple++",\"second\":[{"++Simple ++ "},{" ++ Simple ++ "},{" ++ Simple ++"}]}",
+    Deep = "{"++Simple++",\"second\":[{"++Simple ++ "},{" ++ Simple ++ "},{" ++ Simple ++"}],\"third\":{\"one\":1,\"two\":2}}",
     [Deep,
      #deep{ simple = #simple{ one = 1, two = 2},
             second  = [ #simple{ one = 1, two = 2},
                         #simple{ one = 1, two = 2},
                         #simple{ one = 1, two = 2}
-                      ]
+                      ],
+            third = #simple{ one = 1, two = 2}
           }
      ].
 
 atoms_test() ->
     [Json, Rec] = atoms_json_data(),
-    NewRec = json_rec:to_rec(mochijson2:decode(Json), json_rec_tests, new(<<"atoms">>)),
+    NewRec = json_rec:to_rec(jiffy:decode(Json), json_rec_tests, new(<<"atoms">>)),
     ?assertEqual(Rec, NewRec).
 
 simple_test() ->
     [Json, Rec] = simple_json_data(),
-    NewRec = json_rec:to_rec(mochijson2:decode(Json),json_rec_tests,new(<<"simple">>)),
+    NewRec = json_rec:to_rec(jiffy:decode(Json),json_rec_tests,new(<<"simple">>)),
     ?assertEqual(Rec, NewRec).
 
 simple_t2l_test() ->
     [Json, Rec] = simple_json_t2l_data(),
-    NewRec = json_rec:to_rec(mochijson2:decode(Json),json_rec_tests,new(<<"simplet2l">>)),
+    NewRec = json_rec:to_rec(jiffy:decode(Json),json_rec_tests,new(<<"simplet2l">>)),
     ?assertEqual(Rec, NewRec).
 
 deep_test() ->
     [Json, Rec] = deep_json_data(),
-    NewRec = json_rec:to_rec(mochijson2:decode(Json),json_rec_tests,new(<<"deep">>)),
+    NewRec = json_rec:to_rec(jiffy:decode(Json),json_rec_tests,new(<<"deep">>)),
     ?assertEqual(Rec, NewRec).
 
 deep_deep_test()  ->
     [Json, Rec] = deep_deep_json_data(),
-    New = json_rec:to_rec(mochijson2:decode(Json),json_rec_tests,new(<<"deep">>)),
+    New = json_rec:to_rec(jiffy:decode(Json),json_rec_tests,new(<<"deep">>)),
     ?assertEqual(Rec, New).
 
 unknown_test() ->
     [Json, Rec] = unknown_json_data(),
-    New = json_rec:to_rec(mochijson2:decode(Json),json_rec_tests,new(<<"unknown">>)),
+    New = json_rec:to_rec(jiffy:decode(Json),json_rec_tests,new(<<"unknown">>)),
     ?assertEqual(Rec, New).
 
 to_json_atoms_test() ->
     [_Json, Rec] = atoms_json_data(),
 
     Conv = json_rec:to_json(Rec, json_rec_tests),
-    Sjson = lists:flatten(mochijson2:encode(Conv)),
+    Sjson = jiffy:encode(Conv),
 
-    New = json_rec:to_rec(mochijson2:decode(Sjson), json_rec_tests, new(<<"atoms">>)),
+    New = json_rec:to_rec(jiffy:decode(Sjson), json_rec_tests, new(<<"atoms">>)),
     ?assertEqual(Rec, New).
 
 to_json_simple_test() ->
     [_Json, Rec] = simple_json_data(),
 
     Conv = json_rec:to_json(Rec, json_rec_tests),
-    Sjson= lists:flatten(mochijson2:encode(Conv)),
+    Sjson= jiffy:encode(Conv),
 
-    New = json_rec:to_rec(mochijson2:decode(Sjson),json_rec_tests,new(<<"simple">>)),
+    New = json_rec:to_rec(jiffy:decode(Sjson),json_rec_tests,new(<<"simple">>)),
     ?assertEqual(Rec,New).
 
 to_json_simple_t2l_test() ->
     [_Json, Rec] = simple_json_t2l_data(),
 
     Conv = json_rec:to_json(Rec, json_rec_tests),
-    Sjson= lists:flatten(mochijson2:encode(Conv)),
+    Sjson= jiffy:encode(Conv),
 
-    New = json_rec:to_rec(mochijson2:decode(Sjson),json_rec_tests,new(<<"simplet2l">>)),
+    New = json_rec:to_rec(jiffy:decode(Sjson),json_rec_tests,new(<<"simplet2l">>)),
     ?assertEqual(Rec,New).
 
 to_json_deep_test() ->
     [_Json, Rec] = deep_json_data(),
     Conv = json_rec:to_json(Rec,json_rec_tests),
-    Sjson = lists:flatten(mochijson2:encode(Conv)),
+    Sjson = jiffy:encode(Conv),
 
-
-    New = json_rec:to_rec(mochijson2:decode(Sjson), json_rec_tests, new(<<"deep">>)),
+    New = json_rec:to_rec(jiffy:decode(Sjson), json_rec_tests, new(<<"deep">>)),
     ?assertEqual(Rec,New).
 
 to_json_deep_deep_test() ->
     [_Json, Rec] = deep_deep_json_data(),
     Conv = json_rec:to_json(Rec,json_rec_tests),
-    Sjson = lists:flatten(mochijson2:encode(Conv)),
-    New = json_rec:to_rec(mochijson2:decode(Sjson), json_rec_tests, new(<<"deep">>)),
+    Sjson = jiffy:encode(Conv),
+    
+    New = json_rec:to_rec(jiffy:decode(Sjson), json_rec_tests, new(<<"deep">>)),
     ?assertEqual(Rec,New).
 
 

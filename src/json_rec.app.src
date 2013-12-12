@@ -10,7 +10,8 @@
   {applications, [ 
     kernel, 
     stdlib, 
-    parse_trans 
+    parse_trans,
+    jiffy 
   ]},
   {env, []}
  ]}.

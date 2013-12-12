@@ -38,26 +38,35 @@
 
 
 %% note: I am using tuple() for record, since this is a generic record
--spec to_json(Record :: tuple(), Module :: [atom()]) -> {struct, proplist()};
-             (Record :: tuple(), Module :: atom())  -> {struct, proplist()}.
+-spec to_json(Record :: tuple(), Module :: [atom()]) -> json_dict();
+             (Record :: tuple(), Module :: atom())  -> json_dict().
 
 to_json(Record, Module) when is_list(Module) ->
     Fields = module_rec_fields(Module,Record),
     Pl = rec_keys(Fields, Record, Module, []),
-    {struct, Pl};
+    {Pl};
 
 to_json(Record, Module) ->
     Fields = module_rec_fields([Module],Record),
     Pl = rec_keys(Fields,Record,[Module],[]),
-    {struct, Pl}.
+    {Pl}.
 
 
 rec_keys([], _Record, _Module, Acc) -> Acc;
 rec_keys([Field|Rest],Record,Module,Acc) ->
     Value = module_get(Module, Field, Record),
     Key = list_to_binary(atom_to_list(Field)),
-    JsonValue = field_value(Value,Module,[]),
-    rec_keys(Rest, Record, Module,[{Key,JsonValue}|Acc]).
+    case field_value(Value,Module,[]) of
+        % Skip fields that are undefined. Here we try to aproximate erlang record 
+        % semantics to that of json objects. If a record member was never 
+        % assigned a value, it will be skipped from the resulting Json. To force
+        % an object to appear but still keep un 'unassigned' state in Json use
+        % the atom null. In the reverse way, missing members in Json would not be 
+        % assigned to record members (see to_rec) leaving those with their 
+        % default values (usually, the atom undefined)
+        undefined -> rec_keys(Rest, Record, Module,Acc); 
+        JsonValue -> rec_keys(Rest, Record, Module,[{Key,JsonValue}|Acc])
+    end.
 
 field_value(Value, Module, _Acc) when is_tuple(Value) ->
     case module_has_rec(Module, Value, false) of
@@ -66,7 +75,8 @@ field_value(Value, Module, _Acc) when is_tuple(Value) ->
         _M when is_atom(_M) ->
             to_json(Value,Module)
     end;
-field_value(Value, _Module, _Acc) when Value =:= null;
+field_value(Value, _Module, _Acc) when Value =:= undefined;
+                                       Value =:= null;
                                        Value =:= false;
                                        Value =:= true ->
     Value;
@@ -76,7 +86,7 @@ field_value(Value, _Module, _Acc) when is_atom(Value) ->
 field_value([],_Module, Acc)  -> lists:reverse(Acc);
 field_value([{_,_}|_] = Pl, Module, Acc) ->
     %% it is a proplist, make it a dict
-    {struct, [{Key, Value} || {Key, V2} <- Pl,
+    {[{Key, Value} || {Key, V2} <- Pl,
                           begin
                               Value = field_value(V2, Module, Acc),
                               true
@@ -87,9 +97,8 @@ field_value([Value|Rest], Module, Acc) ->
                    IsRec when is_tuple(IsRec),
                               is_atom(element(1,Value)) ->
                        %% this returned a record, so get the first
-                       %% element from the rec tuple and do: {struct,
-                       %% atom
-                       {struct, [{list_to_binary(atom_to_list(element(1,Value))),IsRec}]};
+                       %% element from the rec tuple
+                       {[{list_to_binary(atom_to_list(element(1,Value))),IsRec}]};
                    %% IsTuple when is_tuple(IsTuple) ->
                    %%     tuple_to_list(IsTuple);
                    NotRec ->
@@ -117,18 +126,17 @@ field_value(Value,_Module,_Acc) ->
             (_Json :: json_dict(), Module :: atom() | [atom()], Rec :: tuple() ) ->
                     Rec :: tuple().
 
-to_rec({struct, Pl} = _Json, Module, undefined) when is_list(Module) ->
+to_rec({Pl} = _Json, Module, undefined) when is_list(Module) ->
     pl(Pl, Module);
-to_rec({struct, Pl} = _Json, Module, undefined) ->
+to_rec({Pl} = _Json, Module, undefined) ->
     pl(Pl, [Module]);
-
-to_rec({struct, Pl} = _Json, Module, Rec) when is_list(Module) ->
+to_rec({Pl} = _Json, Module, Rec) when is_list(Module) ->
     keys_rec(Pl, Module, Rec);
-to_rec({struct, Pl} = _Json, Module, Rec) ->
+to_rec({Pl} = _Json, Module, Rec) ->
     keys_rec(Pl, [Module], Rec).
 
 keys_rec([], _Module, Rec) -> Rec;
-keys_rec([{Key, {struct, Pl}}|Rest], Module, Rec) ->
+keys_rec([{Key, {Pl}}|Rest], Module, Rec) ->
     Field = list_to_atom(binary_to_list(Key)),
     Value = case module_new(Module, Key, undefined) of
                 undefined ->
@@ -136,7 +144,7 @@ keys_rec([{Key, {struct, Pl}}|Rest], Module, Rec) ->
                     pl(Pl,Module);
                 SubRec ->
                     %% we have a new record, go back go the topproplist
-                    to_rec({struct,Pl}, Module, SubRec)
+                    to_rec({Pl}, Module, SubRec)
             end,
     UpRec = module_set(Module, {Field,Value}, Rec),
     keys_rec(Rest, Module, UpRec);
@@ -151,12 +159,12 @@ pl(P, Module) ->
     pl(P,Module,[]).
 pl([],_M,[H]) -> H;
 pl([],_M,Acc) -> lists:reverse(Acc);
-pl([{Key, {struct,Pl}}|Rest], Module, Acc) ->
+pl([{Key, {Pl}}|Rest], Module, Acc) ->
     Value = case module_new(Module,Key,undefined) of
                 undefined ->
                     {Key, pl(Pl, Module, [])};
                 Rec ->
-                    to_rec({struct, Pl}, Module, Rec)
+                    to_rec({Pl}, Module, Rec)
             end,
     pl(Rest, Module, [Value|Acc]);
 pl([{Key,Value}|Rest], Module, Acc) ->
@@ -165,7 +173,7 @@ pl([{Key,Value}|Rest], Module, Acc) ->
 to_value(V, Module) ->
     to_value(V, Module, []).
 
-to_value({struct, Pl}, Module, _Acc) ->
+to_value({Pl}, Module, _Acc) ->
     pl(Pl,Module);
 to_value([], _Module, Acc) -> lists:reverse(Acc);
 to_value([H|T],Module, Acc) ->
