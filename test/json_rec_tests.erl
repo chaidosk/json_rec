@@ -47,8 +47,8 @@ simple_json_data() ->
      #simple{ one = 1, two = 2}].
 
 simple_json_t2l_data() ->
-    ["{\"two\":[1,2,3]}",
-     #simplet2l{ two = [1,2,3]}].
+    ["{\"two\":[1, 3.56781234, null, true, false, \"alpha\", \"undefined\"]}",
+     #simplet2l{ two = [1, 3.56781234, null, true, false, <<"alpha">>, <<"undefined">>]}].
 
 unknown_json_data() ->
     ["{\"one\":1,\"two\":2}",
