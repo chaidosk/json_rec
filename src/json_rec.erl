@@ -52,7 +52,7 @@ to_json(Record, Module) ->
     {Pl}.
 
 
-rec_keys([], _Record, _Module, Acc) -> Acc;
+rec_keys([], _Record, _Module, Acc) -> lists:reverse(Acc);
 rec_keys([Field|Rest],Record,Module,Acc) ->
     Value = module_get(Module, Field, Record),
     Key = list_to_binary(atom_to_list(Field)),
@@ -138,7 +138,7 @@ to_rec({Pl} = _Json, Module, Rec) ->
 keys_rec([], _Module, Rec) -> Rec;
 keys_rec([{Key, {Pl}}|Rest], Module, Rec) ->
     Field = list_to_atom(binary_to_list(Key)),
-    Value = case module_new(Module, Key, undefined) of
+    Value = case module_new(Module, Key, undefined, Rec) of
                 undefined ->
                     %% this is not a sub record, so just pl it
                     pl(Pl,Module);
@@ -182,6 +182,28 @@ to_value(V,_Module,_Acc) -> V.
 
 
 
+module_new(ModuleList, Key, Rec, undefined) ->
+    module_new(ModuleList, Key, Rec);
+module_new(ModuleList, Key, Rec, ParentRecord) ->
+    %% Find the default value for this Key in the ParentRecord
+    M = module_has_rec(ModuleList, ParentRecord, undefined),
+    case M of
+        undefined ->
+            module_new(ModuleList, Key, Rec);
+        _ ->
+            case M:'#get-'(list_to_atom(binary_to_list(Key)),ParentRecord) of
+                SubRec when is_tuple(SubRec) ->
+                    case module_has_rec(ModuleList, SubRec, undefined) of
+                        undefined ->
+                            module_new(ModuleList,Key,Rec);
+                        _ ->
+                            SubRec
+                    end;
+                _ ->
+                    module_new(ModuleList, Key, Rec)
+            end
+    end.
+
 module_new([], _Key, Rec) ->
     Rec;
 module_new([H|T], Key, Rec) ->
@@ -196,7 +218,7 @@ module_new([H|T], Key, Rec) ->
 module_has_rec(Ms, Rec) ->
     module_has_rec(Ms, Rec, throw).
 
-module_has_rec([],_Rec, throw) -> throw(did_not_find_module);
+module_has_rec([],Rec, throw) -> throw({did_not_find_module, Rec});
 module_has_rec([],_Rec, V) -> V;
 module_has_rec([M|T],Rec, Act) ->
     case M:'#is_record-'(Rec) of
