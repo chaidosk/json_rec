@@ -148,7 +148,18 @@ keys_rec([{Key, {Pl}}|Rest], Module, Rec) ->
             end,
     UpRec = module_set(Module, {Field,Value}, Rec),
     keys_rec(Rest, Module, UpRec);
-
+keys_rec([{Key,Value=[{_Pl}|_RestPlList]}|Rest], Module, Rec) ->
+    Field = list_to_atom(binary_to_list(Key)),
+    case checkDefaultValue(Module, Rec, Key) of 
+        [SubRec] ->
+            NewValue = lists:map(fun (V) -> to_rec(V, Module,SubRec) end, Value),
+            NewRec = module_set(Module, {Field, NewValue}, Rec),
+            keys_rec(Rest,Module,NewRec);
+        _ ->
+            NewValue = to_value(Value,Module),
+            NewRec = module_set(Module, {Field, NewValue}, Rec),
+            keys_rec(Rest,Module,NewRec)
+    end;
 keys_rec([{Key, Value}|Rest], Module, Rec) ->
     Field = list_to_atom(binary_to_list(Key)),
     NewValue = to_value(Value,Module),
@@ -180,28 +191,43 @@ to_value([H|T],Module, Acc) ->
     to_value(T,Module,[to_value(H,Module,[])|Acc]);
 to_value(V,_Module,_Acc) -> V.
 
-
-
-module_new(ModuleList, Key, Rec, undefined) ->
-    module_new(ModuleList, Key, Rec);
-module_new(ModuleList, Key, Rec, ParentRecord) ->
-    %% Find the default value for this Key in the ParentRecord
+checkDefaultValue(ModuleList, ParentRecord, Key) ->
     M = module_has_rec(ModuleList, ParentRecord, undefined),
     case M of
         undefined ->
-            module_new(ModuleList, Key, Rec);
+           not_a_record_or_list; 
         _ ->
             case M:'#get-'(list_to_atom(binary_to_list(Key)),ParentRecord) of
                 SubRec when is_tuple(SubRec) ->
                     case module_has_rec(ModuleList, SubRec, undefined) of
                         undefined ->
-                            module_new(ModuleList,Key,Rec);
+                            not_a_record_or_list;
                         _ ->
                             SubRec
                     end;
+                [SubRec] when is_tuple(SubRec) ->
+                    case module_has_rec(ModuleList, SubRec, undefined) of
+                        undefined ->
+                            not_a_record_or_list;
+                        _ ->
+                            [SubRec]
+                    end;
                 _ ->
-                    module_new(ModuleList, Key, Rec)
+                     not_a_record_or_list
             end
+    end.
+
+module_new(ModuleList, Key, Rec, undefined) ->
+    module_new(ModuleList, Key, Rec);
+module_new(ModuleList, Key, Rec, ParentRecord) ->
+    %% Find the default value for this Key in the ParentRecord
+    case checkDefaultValue(ModuleList, ParentRecord, Key) of
+        not_a_record_or_list ->
+            module_new(ModuleList, Key, Rec);
+        SubRec when is_tuple(SubRec) ->
+            SubRec;
+        [SubRec] ->
+            SubRec
     end.
 
 module_new([], _Key, Rec) ->

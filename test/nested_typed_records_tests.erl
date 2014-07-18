@@ -9,6 +9,11 @@
             two
         }).
 
+-record(doubleSimple, {
+            first,
+            second
+        }).
+
 -record(deep, {
             simple,
             simple2
@@ -27,14 +32,20 @@
             myTypedSimple2 = '#new-typedSimple2'()
         }).
 
+-record(typedSimpleArray, {
+            mySimple = ['#new-doubleSimple'()]
+        }).
+
 -compile({parse_transform, exprecs}).
--export_records([simple,simple2,deep, typedSimple, typedSimple2, typedSimple3]).
+-export_records([simple,simple2, doubleSimple, deep, typedSimple, typedSimple2, typedSimple3, typedSimpleArray]).
 -export([new/1]).
 
 new(<<"simple">>) ->
     '#new-simple'();
 new(<<"simple2">>) ->
     '#new-simple2'();
+new(<<"doubleSimple">>) ->
+    '#new-doubleSimple'();
 new(<<"deep">>) ->
     '#new-deep'();
 new(<<"typedSimple">>) ->
@@ -43,6 +54,8 @@ new(<<"typedSimple2">>) ->
     '#new-typedSimple2'();
 new(<<"typedSimple3">>) ->
     '#new-typedSimple3'();
+new(<<"typedSimpleArray">>) ->
+    '#new-typedSimpleArray'();
 new(_RecName) -> undefined.
 
 simple_json_data() ->
@@ -171,3 +184,31 @@ typedSimple3_round_trip_test() ->
     Sjson = jiffy:encode(Conv),
     NewRec = json_rec:to_rec(jiffy:decode(Sjson), ?MODULE, new(<<"typedSimple3">>)),
     ?assertEqual(Rec, NewRec).
+
+typedSimpleArray_json_data() ->
+    [   <<"{\"mySimple\":[{\"first\":1,\"second\":2},{\"first\":2,\"second\":3}]}">>,
+        #typedSimpleArray{ 
+            mySimple = [#doubleSimple{ first = 1, second = 2 },#doubleSimple{ first = 2, second = 3 }] 
+        }
+    ].
+
+typedSimpleArray_to_rec_test() ->
+    [Json, Rec] = typedSimpleArray_json_data(),
+    NewRec = json_rec:to_rec(jiffy:decode(Json), ?MODULE, new(<<"typedSimpleArray">>)),
+    ?assertEqual(Rec, NewRec).
+%% The round trip in this case doesn't work
+%% It conflicts with the expected results in the deep_deep tests in json_rec_tests
+%%
+%typedSimpleArray_to_json_test() ->
+%    [Json, Rec] = typedSimpleArray_json_data(),
+%    Conv = json_rec:to_json(Rec, ?MODULE),
+%    Sjson = jiffy:encode(Conv),
+%    ?assertEqual(Json,Sjson).
+%
+%typedSimpleArray_round_trip_test() ->
+%    [_, Rec] = typedSimpleArray_json_data(),
+%    Conv = json_rec:to_json(Rec, ?MODULE),
+%    Sjson = jiffy:encode(Conv),
+%    NewRec = json_rec:to_rec(jiffy:decode(Sjson), ?MODULE, new(<<"typedSimpleArray">>)),
+%    ?assertEqual(Rec, NewRec).
+
